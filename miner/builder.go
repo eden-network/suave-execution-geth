@@ -41,11 +41,17 @@ type BuilderConfig struct {
 }
 
 type BuilderArgs struct {
-	ParentHash     common.Hash
-	FeeRecipient   common.Address
-	ProposerPubkey []byte
-	Extra          []byte
-	Slot           uint64
+	Slot            uint64
+	ProposerPubkey  []byte
+	ParentHash      common.Hash
+	Timestamp       uint64
+	FeeRecipient    common.Address
+	GasLimit        uint64
+	Random          common.Hash
+	Withdrawals     []*types.Withdrawal
+	ParentBlockRoot common.Hash
+
+	Extra []byte
 }
 
 type Builder struct {
@@ -71,10 +77,14 @@ func NewBuilder(config *BuilderConfig, args *BuilderArgs) (*Builder, error) {
 	}
 
 	workerParams := &generateParams{
-		parentHash: args.ParentHash,
-		forceTime:  false,
-		coinbase:   args.FeeRecipient,
-		extra:      args.Extra,
+		timestamp:   args.Timestamp,
+		forceTime:   false,
+		parentHash:  args.ParentHash,
+		coinbase:    args.FeeRecipient,
+		random:      args.Random,
+		withdrawals: args.Withdrawals,
+		beaconRoot:  &args.ParentBlockRoot,
+		extra:       args.Extra,
 	}
 	env, err := b.wrk.prepareWork(workerParams)
 	if err != nil {
@@ -184,17 +194,13 @@ type ChainContextDummy struct {
 
 func (c *ChainContextDummy) Engine() consensus.Engine {
 	panic("not implemented")
-	return nil
 }
 
 func (c *ChainContextDummy) GetHeader(common.Hash, uint64) *types.Header {
 	panic("not implemented")
-	return nil
 }
 
 func (b *Builder) Call(args *ethapi.TransactionArgs) ([]byte, error) {
-	// TODO: Figure out the timeout situation
-
 	error := args.CallDefaults(0, common.Big0, b.wrk.chainConfig.ChainID)
 	if error != nil {
 		return nil, error
